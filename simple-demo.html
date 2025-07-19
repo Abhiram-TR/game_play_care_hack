@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GazeQuest Adventures - Live Demo</title>
+    <style>
+        /* Import our global styles inline for demo */
+        :root {
+            --color-primary: #667eea;
+            --color-secondary: #764ba2;
+            --color-accent: #f093fb;
+            --color-success: #4caf50;
+            --text-inverse: #ffffff;
+            --focus-color: #ffbf00;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --border-radius-md: 0.5rem;
+            --transition-base: 250ms ease-in-out;
+        }
+
+        * { box-sizing: border-box; }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+            min-height: 100vh;
+            color: var(--text-inverse);
+            overflow-x: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
+            z-index: 100;
+        }
+
+        .game-title {
+            font-size: 4rem;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 1rem;
+            text-align: center;
+            font-weight: bold;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 255, 255, 0.3); }
+            to { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 255, 255, 0.5); }
+        }
+
+        .game-subtitle {
+            font-size: 1.5rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+
+        .menu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .menu-button {
+            width: 400px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 30px;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .menu-button:hover, .menu-button:focus {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            outline: 3px solid var(--focus-color);
+            outline-offset: 2px;
+        }
+
+        .menu-button:active {
+            transform: translateY(0);
+        }
+
+        .input-selector {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            min-width: 200px;
+        }
+
+        .quick-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+        }
+
+        .control-title {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: var(--color-accent);
+            font-weight: bold;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .toggle-button {
+            width: 40px;
+            height: 20px;
+            background: #666;
+            border: none;
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .toggle-button.active {
+            background: var(--color-success);
+        }
+
+        .toggle-slider {
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: left 0.3s ease;
+        }
+
+        .toggle-button.active .toggle-slider {
+            left: 22px;
+        }
+
+        .status-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .accessibility-demo {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(76, 175, 80, 0.3);
+            border: 1px solid var(--color-success);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+        }
+
+        .sr-only {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+        }
+
+        /* High contrast mode */
+        .high-contrast {
+            --color-primary: #000000;
+            --color-secondary: #1a1a1a;
+            --text-inverse: #ffffff;
+            background: #000000 !important;
+        }
+
+        .high-contrast .menu-overlay {
+            background: #000000 !important;
+        }
+
+        .high-contrast .menu-button {
+            background: #333333 !important;
+            border-color: #ffffff !important;
+        }
+
+        /* Large text mode */
+        .large-text {
+            font-size: 1.25em;
+        }
+
+        .large-text .game-title {
+            font-size: 5rem;
+        }
+
+        .large-text .menu-button {
+            font-size: 1.4rem;
+            height: 70px;
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        .reduced-motion * {
+            animation: none !important;
+            transition: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Skip to main content -->
+    <a href="#main-content" class="sr-only">Skip to main content</a>
+
+    <main id="main-content" class="game-container">
+        <div class="menu-overlay">
+            <!-- Game Title -->
+            <h1 class="game-title">🎮 GazeQuest Adventures</h1>
+            <p class="game-subtitle">Inclusive Gaming for Everyone</p>
+
+            <!-- Menu Buttons -->
+            <div class="menu-container">
+                <button class="menu-button" data-action="start" aria-label="Start Adventure - Begin your accessible gaming journey">
+                    Start Adventure
+                </button>
+                <button class="menu-button" data-action="tutorial" aria-label="Tutorial - Learn how to play with your preferred input method">
+                    Tutorial
+                </button>
+                <button class="menu-button" data-action="settings" aria-label="Accessibility Settings - Customize the game for your needs">
+                    Accessibility Settings
+                </button>
+                <button class="menu-button" data-action="input" aria-label="Input Methods - Choose and calibrate your input method">
+                    Input Methods
+                </button>
+                <button class="menu-button" data-action="about" aria-label="About - Learn about GazeQuest Adventures">
+                    About
+                </button>
+            </div>
+
+            <!-- Input Method Selector -->
+            <div class="input-selector">
+                <h3 class="control-title">Input Method</h3>
+                <div id="current-method">Keyboard</div>
+                <button onclick="showInputDialog()" style="margin-top: 10px; padding: 5px 10px; background: var(--color-primary); color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Change Method
+                </button>
+            </div>
+
+            <!-- Quick Accessibility Controls -->
+            <div class="quick-controls">
+                <h3 class="control-title">Quick Settings</h3>
+                
+                <div class="toggle-container">
+                    <label>High Contrast</label>
+                    <button class="toggle-button" onclick="toggleHighContrast(this)" aria-label="Toggle high contrast mode">
+                        <div class="toggle-slider"></div>
+                    </button>
+                </div>
+                
+                <div class="toggle-container">
+                    <label>Large Text</label>
+                    <button class="toggle-button" onclick="toggleLargeText(this)" aria-label="Toggle large text mode">
+                        <div class="toggle-slider"></div>
+                    </button>
+                </div>
+                
+                <div class="toggle-container">
+                    <label>Reduced Motion</label>
+                    <button class="toggle-button" onclick="toggleReducedMotion(this)" aria-label="Toggle reduced motion mode">
+                        <div class="toggle-slider"></div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="status-bar">
+                ✅ Game Engine Ready | 🎮 Keyboard Navigation Active | ♿ Accessibility Features Enabled
+            </div>
+
+            <!-- Accessibility Demo Info -->
+            <div class="accessibility-demo">
+                <strong>🎯 Try These Features:</strong><br>
+                • Tab + Enter to navigate<br>
+                • Arrow keys + Enter<br>
+                • Toggle accessibility options<br>
+                • Screen reader compatible<br>
+                • Full keyboard navigation
+            </div>
+        </div>
+    </main>
+
+    <!-- Screen reader announcements -->
+    <div id="sr-announcements" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+    <div id="sr-announcements-assertive" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
+
+    <script>
+        // Initialize demo
+        let currentFocus = 0;
+        const menuButtons = document.querySelectorAll('.menu-button');
+        
+        // Announce game load
+        announce('GazeQuest Adventures loaded. Use Tab and Enter to navigate, or arrow keys to move through menu items.');
+
+        // Menu button interactions
+        menuButtons.forEach((button, index) => {
+            button.addEventListener('click', () => handleMenuAction(button.dataset.action));
+            button.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleMenuAction(button.dataset.action);
+                }
+            });
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    navigateMenu(-1);
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    navigateMenu(1);
+                    break;
+                case 'Enter':
+                    if (document.activeElement.classList.contains('menu-button')) {
+                        e.preventDefault();
+                        handleMenuAction(document.activeElement.dataset.action);
+                    }
+                    break;
+            }
+        });
+
+        function navigateMenu(direction) {
+            currentFocus = Math.max(0, Math.min(menuButtons.length - 1, currentFocus + direction));
+            menuButtons[currentFocus].focus();
+            announce(`${menuButtons[currentFocus].textContent} button focused`);
+        }
+
+        function handleMenuAction(action) {
+            playClickSound();
+            
+            switch (action) {
+                case 'start':
+                    announce('Starting adventure! This would transition to the first game realm.');
+                    alert('🎮 Game would start here!\n\nIn the full version, this would:\n• Load the Crystal Caves realm\n• Initialize eye tracking if enabled\n• Begin the accessible gaming experience');
+                    break;
+                case 'tutorial':
+                    announce('Opening tutorial. This would teach you how to use different input methods.');
+                    alert('📚 Tutorial would open here!\n\nThe tutorial would cover:\n• Keyboard navigation\n• Eye tracking setup\n• Voice commands\n• Switch control\n• Accessibility features');
+                    break;
+                case 'settings':
+                    announce('Opening accessibility settings dialog.');
+                    alert('⚙️ Accessibility Settings\n\nFull settings would include:\n• Input method configuration\n• Visual accessibility options\n• Audio settings\n• Motor accessibility features\n• Personalization options');
+                    break;
+                case 'input':
+                    showInputDialog();
+                    break;
+                case 'about':
+                    announce('Opening about information.');
+                    alert('ℹ️ About GazeQuest Adventures\n\nAn inclusive web-based adventure game designed for children with motor impairments.\n\n✨ Features:\n• Eye tracking (WebGazer.js)\n• Voice recognition\n• Breath control\n• Device orientation\n• Switch control\n• Full accessibility compliance (WCAG 2.1 AAA)\n\n🎯 Built with inclusion at its core!');
+                    break;
+            }
+        }
+
+        function showInputDialog() {
+            announce('Input method selection opened.');
+            const methods = [
+                '🖱️ Mouse & Keyboard (Active)',
+                '👁️ Eye Tracking (Requires camera)',
+                '🗣️ Voice Control (Coming soon)',
+                '💨 Breath Control (Coming soon)',
+                '📱 Head Movement (Coming soon)',
+                '🔘 Switch Control (Available)'
+            ];
+            
+            alert('🎮 Available Input Methods:\n\n' + methods.join('\n') + '\n\nIn the full version, you could:\n• Test each input method\n• Complete calibration\n• Adjust sensitivity\n• Save preferences');
+        }
+
+        function toggleHighContrast(button) {
+            button.classList.toggle('active');
+            document.body.classList.toggle('high-contrast');
+            const enabled = button.classList.contains('active');
+            announce(`High contrast mode ${enabled ? 'enabled' : 'disabled'}`);
+        }
+
+        function toggleLargeText(button) {
+            button.classList.toggle('active');
+            document.body.classList.toggle('large-text');
+            const enabled = button.classList.contains('active');
+            announce(`Large text mode ${enabled ? 'enabled' : 'disabled'}`);
+        }
+
+        function toggleReducedMotion(button) {
+            button.classList.toggle('active');
+            document.body.classList.toggle('reduced-motion');
+            const enabled = button.classList.contains('active');
+            announce(`Reduced motion mode ${enabled ? 'enabled' : 'disabled'}`);
+        }
+
+        function playClickSound() {
+            // Simple click sound simulation
+            const audio = new AudioContext();
+            const oscillator = audio.createOscillator();
+            const gainNode = audio.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audio.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audio.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audio.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 0.1);
+            
+            oscillator.start(audio.currentTime);
+            oscillator.stop(audio.currentTime + 0.1);
+        }
+
+        function announce(message) {
+            const announcer = document.getElementById('sr-announcements');
+            announcer.textContent = '';
+            setTimeout(() => {
+                announcer.textContent = message;
+            }, 100);
+        }
+
+        // Focus first menu item
+        menuButtons[0].focus();
+    </script>
+</body>
+</html>

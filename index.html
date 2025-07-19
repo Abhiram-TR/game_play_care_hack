@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GazeQuest Adventures - Inclusive Gaming for Everyone</title>
+    
+    <!-- SEO and Accessibility Meta -->
+    <meta name="description" content="An inclusive web-based adventure game designed for children with motor impairments. Features eye-tracking, voice commands, and multiple accessible input methods.">
+    <meta name="keywords" content="accessible gaming, eye tracking, voice control, motor impairment, inclusive design">
+    <meta name="author" content="GazeQuest Adventures Team">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="GazeQuest Adventures - Inclusive Gaming">
+    <meta property="og:description" content="Adventure game designed for children with motor impairments">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gazequest.vercel.app">
+    
+    <!-- Accessibility -->
+    <meta name="theme-color" content="#007bff">
+    <meta name="color-scheme" content="light dark">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/assets/fonts/game-font.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="alternate icon" href="/favicon.ico">
+    
+    <!-- Critical CSS -->
+    <style>
+        /* Critical loading styles */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+        
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .sr-only {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Skip to main content link -->
+    <a href="#main-content" class="sr-only focus:not-sr-only">Skip to main content</a>
+    
+    <!-- Loading screen -->
+    <div id="loading-screen" class="loading-screen" role="status" aria-live="polite">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <h1>GazeQuest Adventures</h1>
+        <p>Loading inclusive gaming experience...</p>
+        <div class="sr-only">
+            Game is loading. Please wait while we prepare your accessible gaming experience.
+        </div>
+    </div>
+    
+    <!-- Main game container -->
+    <main id="main-content" class="game-container" style="display: none;">
+        <!-- Game canvas and UI will be injected here -->
+        <canvas id="game-canvas" role="application" aria-label="GazeQuest Adventures Game"></canvas>
+        
+        <!-- Accessibility UI overlay -->
+        <div id="accessibility-overlay" class="accessibility-overlay">
+            <!-- Input method selector -->
+            <div id="input-selector" class="input-selector" role="region" aria-label="Input method selection">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            
+            <!-- Game controls -->
+            <div id="game-controls" class="game-controls" role="toolbar" aria-label="Game controls">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            
+            <!-- Progress indicator -->
+            <div id="progress-indicator" class="progress-indicator" role="progressbar" aria-live="polite">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Screen reader announcements -->
+        <div id="sr-announcements" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+        <div id="sr-announcements-assertive" aria-live="assertive" aria-atomic="true" class="sr-only"></div>
+    </main>
+    
+    <!-- Error boundary -->
+    <div id="error-boundary" style="display: none;" role="alert">
+        <h2>Something went wrong</h2>
+        <p>We're sorry, but the game encountered an error. Please refresh the page to try again.</p>
+        <button onclick="location.reload()">Refresh Page</button>
+    </div>
+    
+    <!-- Module script -->
+    <script type="module" src="/src/main.js"></script>
+    
+    <!-- Fallback for browsers without module support -->
+    <script nomodule>
+        document.getElementById('loading-screen').innerHTML = 
+            '<h1>Browser Not Supported</h1><p>This game requires a modern browser with JavaScript module support. Please update your browser.</p>';
+    </script>
+</body>
+</html>
