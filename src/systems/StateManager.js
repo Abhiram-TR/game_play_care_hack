@@ -11,7 +11,7 @@ export class StateManager {
       level: 1,
       experience: 0,
       achievements: [],
-      unlockedRealms: ['crystal_caves'],
+      unlockedRealms: ['crystal_caves', 'wind_valley', 'motion_mountains', 'switch_sanctuary'],
       
       // User preferences
       settings: {
@@ -85,6 +85,9 @@ export class StateManager {
     try {
       // Load saved state
       await this.loadState();
+      
+      // Ensure all realms are unlocked for demo purposes
+      this.unlockAllRealms();
       
       // Set up auto-save
       this.setupAutoSave();
@@ -167,6 +170,15 @@ export class StateManager {
   }
 
   /**
+   * Unlock all realms (for demo purposes)
+   */
+  unlockAllRealms() {
+    const allRealms = ['crystal_caves', 'wind_valley', 'motion_mountains', 'switch_sanctuary'];
+    this.updateState('unlockedRealms', allRealms);
+    console.log('🔓 All realms unlocked for demo access');
+  }
+
+  /**
    * Update user progress
    */
   updateProgress(progressData) {
@@ -221,22 +233,38 @@ export class StateManager {
   applySettings(settingsPath, value) {
     if (!this.gameEngine) return;
     
-    switch (settingsPath) {
-      case 'volume':
-        this.gameEngine.audioManager?.setMasterVolume(value);
-        break;
-      case 'sfxVolume':
-        this.gameEngine.audioManager?.setSFXVolume(value);
-        break;
-      case 'accessibility.highContrast':
-        this.gameEngine.accessibilityManager?.setHighContrast(value);
-        break;
-      case 'accessibility.textSize':
-        this.gameEngine.accessibilityManager?.setTextSize(value);
-        break;
-      case 'accessibility.reducedMotion':
-        this.gameEngine.accessibilityManager?.setReducedMotion(value);
-        break;
+    try {
+      switch (settingsPath) {
+        case 'volume':
+          // Use skipSave=true to prevent circular dependency
+          if (this.gameEngine.audioManager?.setMasterVolume) {
+            this.gameEngine.audioManager.setMasterVolume(value, true);
+          }
+          break;
+        case 'sfxVolume':
+          // Use skipSave=true to prevent circular dependency
+          if (this.gameEngine.audioManager?.setSFXVolume) {
+            this.gameEngine.audioManager.setSFXVolume(value, true);
+          }
+          break;
+        case 'accessibility.highContrast':
+          if (this.gameEngine.accessibilityManager?.setHighContrast) {
+            this.gameEngine.accessibilityManager.setHighContrast(value);
+          }
+          break;
+        case 'accessibility.textSize':
+          if (this.gameEngine.accessibilityManager?.setTextSize) {
+            this.gameEngine.accessibilityManager.setTextSize(value);
+          }
+          break;
+        case 'accessibility.reducedMotion':
+          if (this.gameEngine.accessibilityManager?.setReducedMotion) {
+            this.gameEngine.accessibilityManager.setReducedMotion(value);
+          }
+          break;
+      }
+    } catch (error) {
+      console.warn(`Failed to apply setting ${settingsPath}:`, error);
     }
   }
 
@@ -400,7 +428,7 @@ export class StateManager {
       level: 1,
       experience: 0,
       achievements: [],
-      unlockedRealms: ['crystal_caves'],
+      unlockedRealms: ['crystal_caves', 'wind_valley', 'motion_mountains', 'switch_sanctuary'],
       settings: settingsBackup,
       session: {
         startTime: Date.now(),

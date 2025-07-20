@@ -114,13 +114,32 @@ export class EyeTracker {
     }
     
     try {
-      // Import WebGazer
-      const webgazerModule = await import('webgazer');
-      this.webgazer = webgazerModule.default || webgazerModule;
-      
-      if (!this.webgazer) {
-        throw new Error('WebGazer not loaded properly');
+      // Load WebGazer from CDN
+      if (!document.querySelector('script[src*="webgazer"]')) {
+        const script = document.createElement('script');
+        script.src = 'https://webgazer.cs.brown.edu/webgazer.js';
+        document.head.appendChild(script);
+        
+        // Wait for script to load
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+        });
       }
+      
+      // Wait for webgazer to be available
+      let attempts = 0;
+      while (!window.webgazer && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      
+      if (!window.webgazer) {
+        throw new Error('WebGazer not loaded after waiting');
+      }
+      
+      this.webgazer = window.webgazer;
+      console.log('✅ WebGazer loaded successfully');
       
     } catch (error) {
       console.error('Failed to load WebGazer:', error);
@@ -134,6 +153,8 @@ export class EyeTracker {
   async initializeWebGazer() {
     return new Promise((resolve, reject) => {
       try {
+        console.log('🔧 Configuring WebGazer...');
+        
         // Configure WebGazer
         this.webgazer
           .setRegression('ridge')
@@ -144,10 +165,15 @@ export class EyeTracker {
           .showFaceOverlay(false)
           .showFaceFeedbackBox(false);
         
+        console.log('🚀 Starting WebGazer...');
+        
         // Start WebGazer
         this.webgazer.begin()
           .then(() => {
             console.log('👁️ WebGazer started successfully');
+            
+            // Pause initially until activation
+            this.webgazer.pause();
             
             // Set up camera permissions handler
             this.handleCameraPermissions();
@@ -251,6 +277,56 @@ export class EyeTracker {
   }
 
   /**
+   * Setup video preview with custom styling
+   */
+  setupVideoPreview() {
+    // Wait for WebGazer to create the video element
+    setTimeout(() => {
+      const videoContainer = document.getElementById('webgazerVideoContainer');
+      const video = document.getElementById('webgazerVideoFeed');
+      
+      if (videoContainer) {
+        videoContainer.style.cssText = `
+          position: fixed !important;
+          bottom: 20px !important;
+          right: 20px !important;
+          width: 200px !important;
+          height: 150px !important;
+          z-index: 1000 !important;
+          border: 2px solid #00ffff !important;
+          border-radius: 10px !important;
+          overflow: hidden !important;
+          box-shadow: 0 4px 12px rgba(0, 255, 255, 0.3) !important;
+        `;
+        
+        // Add title
+        const title = document.createElement('div');
+        title.textContent = 'Eye Tracking Camera';
+        title.style.cssText = `
+          position: absolute;
+          top: -25px;
+          left: 0;
+          color: #00ffff;
+          font-size: 12px;
+          font-weight: bold;
+          background: rgba(0, 0, 0, 0.7);
+          padding: 2px 8px;
+          border-radius: 4px;
+        `;
+        videoContainer.appendChild(title);
+      }
+      
+      if (video) {
+        video.style.cssText = `
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+        `;
+      }
+    }, 1000);
+  }
+
+  /**
    * Activate eye tracking
    */
   async activate() {
@@ -264,8 +340,9 @@ export class EyeTracker {
       // Resume WebGazer
       await this.webgazer.resume();
       
-      // Show video preview for user feedback
+      // Show video preview for user feedback with custom positioning
       this.webgazer.showVideoPreview(true);
+      this.setupVideoPreview();
       
       // Start prediction
       this.startPrediction();
@@ -353,28 +430,42 @@ export class EyeTracker {
    * Handle gaze data from WebGazer
    */
   handleGazeData(data, timestamp) {
-    if (!this.isActive || !data) return;
+    if (!data) return;
+    
+    // Always update gaze data, even during calibration
+    const currentTime = timestamp || Date.now();
     
     // Validate gaze data
-    if (!this.isValidGazeData(data)) return;
+    if (!this.isValidGazeData(data)) {
+      console.warn('Invalid gaze data received:', data);
+      return;
+    }
     
-    // Apply smoothing
-    const smoothedGaze = this.config.smoothing ? 
+    // Apply smoothing if not in calibration mode
+    const smoothedGaze = (this.config.smoothing && !this.calibrationData.isCalibrating) ? 
       this.applySmoothingFilter(data) : data;
     
     // Update current gaze
     this.currentGaze = {
       x: smoothedGaze.x,
       y: smoothedGaze.y,
-      timestamp: timestamp || Date.now(),
-      raw: data
+      timestamp: currentTime,
+      raw: data,
+      confidence: data.confidence || 1.0
     };
     
     // Add to history
     this.addToGazeHistory(this.currentGaze);
     
-    // Process gaze interactions
-    this.processGazeInteractions();
+    // Log gaze data during calibration for debugging
+    if (this.calibrationData.isCalibrating) {
+      console.log(`👁️ Gaze detected: (${Math.round(this.currentGaze.x)}, ${Math.round(this.currentGaze.y)})`);
+    }
+    
+    // Process gaze interactions only if active
+    if (this.isActive) {
+      this.processGazeInteractions();
+    }
     
     // Emit gaze event
     this.emit('gaze', this.currentGaze);
@@ -391,19 +482,29 @@ export class EyeTracker {
       return false;
     }
     
-    // Check bounds
-    const canvas = this.inputManager?.gameEngine?.canvas;
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const deadZone = this.config.deadZone;
-      
-      if (data.x < deadZone || data.x > rect.width - deadZone ||
-          data.y < deadZone || data.y > rect.height - deadZone) {
-        return false;
-      }
+    // Check for NaN or infinite values
+    if (isNaN(data.x) || isNaN(data.y) || !isFinite(data.x) || !isFinite(data.y)) {
+      return false;
     }
     
-    // Check if data is too old
+    // During calibration, be more permissive with bounds
+    if (this.calibrationData.isCalibrating) {
+      // Just check if values are reasonable (not negative or way too large)
+      if (data.x < -100 || data.x > window.innerWidth + 100 ||
+          data.y < -100 || data.y > window.innerHeight + 100) {
+        return false;
+      }
+      return true;
+    }
+    
+    // Normal bounds checking when not calibrating
+    const deadZone = this.config.deadZone;
+    if (data.x < deadZone || data.x > window.innerWidth - deadZone ||
+        data.y < deadZone || data.y > window.innerHeight - deadZone) {
+      return false;
+    }
+    
+    // Check if data is too old (but only when not calibrating)
     const now = Date.now();
     if (this.currentGaze.timestamp && now - this.currentGaze.timestamp > this.config.maxGazeAge) {
       return false;
@@ -753,6 +854,25 @@ export class EyeTracker {
    */
   async showCalibrationUI() {
     return new Promise((resolve) => {
+      // Add pulse animation styles if not present
+      if (!document.getElementById('calibration-styles')) {
+        const style = document.createElement('style');
+        style.id = 'calibration-styles';
+        style.textContent = `
+          @keyframes pulse {
+            0%, 100% { 
+              transform: scale(1); 
+              box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
+            }
+            50% { 
+              transform: scale(1.2); 
+              box-shadow: 0 0 30px rgba(255, 107, 107, 1), 0 0 40px rgba(255, 107, 107, 0.6);
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
       // Create calibration overlay
       const overlay = document.createElement('div');
       overlay.id = 'eye-tracking-calibration';
@@ -762,7 +882,7 @@ export class EyeTracker {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.8);
+        background: rgba(0, 0, 0, 0.9);
         z-index: 10000;
         display: flex;
         align-items: center;
@@ -772,18 +892,39 @@ export class EyeTracker {
         text-align: center;
       `;
       
+      // Create calibration instructions
+      const instructions = document.createElement('div');
+      instructions.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        font-size: 1.5rem;
+        color: white;
+        z-index: 10001;
+      `;
+      instructions.innerHTML = `
+        <h2 style="color: #ff6b6b; margin-bottom: 20px;">👁️ Eye Tracking Calibration</h2>
+        <p>Look at each red dot as it appears and keep looking until it disappears</p>
+        <p style="font-size: 1rem; color: #ccc;">Point 1 of 9</p>
+      `;
+      overlay.appendChild(instructions);
+      
       // Create calibration point
       const point = document.createElement('div');
       point.className = 'calibration-point';
       point.style.cssText = `
-        width: 20px;
-        height: 20px;
-        background: #ff6b6b;
+        width: 24px;
+        height: 24px;
+        background: #ff4444;
+        border: 3px solid #ff6b6b;
         border-radius: 50%;
         position: absolute;
         cursor: none;
         box-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
         animation: pulse 1s infinite;
+        z-index: 10002;
       `;
       
       overlay.appendChild(point);
@@ -791,6 +932,9 @@ export class EyeTracker {
       
       this.calibrationOverlay = overlay;
       this.calibrationPoint = point;
+      this.calibrationInstructions = instructions;
+      
+      console.log('👁️ Calibration UI created, starting sequence...');
       
       // Start calibration sequence
       this.runCalibrationSequence(resolve);
@@ -810,14 +954,25 @@ export class EyeTracker {
         return;
       }
       
+      // Update progress
+      if (this.calibrationInstructions) {
+        const progressText = this.calibrationInstructions.querySelector('p:last-child');
+        if (progressText) {
+          progressText.textContent = `Point ${currentPoint + 1} of 9`;
+        }
+      }
+      
       const point = points[currentPoint];
+      console.log(`👁️ Showing calibration point ${currentPoint + 1} at (${point.x}, ${point.y})`);
+      
       this.showCalibrationPoint(point, () => {
         currentPoint++;
         setTimeout(showNextPoint, 500);
       });
     };
     
-    showNextPoint();
+    // Start after a brief delay to ensure UI is ready
+    setTimeout(showNextPoint, 1000);
   }
 
   /**
@@ -846,27 +1001,147 @@ export class EyeTracker {
    * Show single calibration point
    */
   showCalibrationPoint(point, onComplete) {
-    this.calibrationPoint.style.left = `${point.x - 10}px`;
-    this.calibrationPoint.style.top = `${point.y - 10}px`;
+    // Make sure the point is visible and positioned correctly
+    this.calibrationPoint.style.display = 'block';
+    this.calibrationPoint.style.left = `${point.x - 12}px`; // Center the 24px point
+    this.calibrationPoint.style.top = `${point.y - 12}px`;
+    this.calibrationPoint.style.opacity = '1';
     
-    // Add to WebGazer calibration
-    this.webgazer?.addGazeListener((data) => {
-      if (data) {
-        this.webgazer.addMouseEventListeners();
+    console.log(`🎯 Red dot positioned at (${point.x}, ${point.y})`);
+    
+    // Hide instructions during point viewing
+    if (this.calibrationInstructions) {
+      this.calibrationInstructions.style.display = 'none';
+    }
+    
+    // Create a progress indicator around the dot
+    this.createCalibrationProgress(point);
+    
+    // Add WebGazer calibration with proper click simulation
+    if (this.webgazer) {
+      // Ensure WebGazer is tracking the user's face
+      this.webgazer.resume();
+      
+      // Create multiple calibration samples for better accuracy
+      const calibrationSamples = [];
+      const sampleInterval = 300; // Sample every 300ms
+      const totalSamples = 8; // 8 samples over ~2.4 seconds
+      
+      for (let i = 0; i < totalSamples; i++) {
+        setTimeout(() => {
+          // Simulate a click at the calibration point for WebGazer
+          const clickEvent = document.createEvent('MouseEvents');
+          clickEvent.initMouseEvent('click', true, true, window, 0, 
+            point.x, point.y, point.x, point.y, false, false, false, false, 0, null);
+          
+          // Manually add calibration data to WebGazer
+          if (this.webgazer.recordScreenPosition) {
+            this.webgazer.recordScreenPosition(point.x, point.y);
+          }
+          
+          // Also store for our own tracking
+          calibrationSamples.push({
+            x: point.x,
+            y: point.y,
+            timestamp: Date.now(),
+            gazeData: this.currentGaze ? { ...this.currentGaze } : null
+          });
+          
+          console.log(`👁️ Calibration sample ${i + 1}/${totalSamples} recorded at (${point.x}, ${point.y})`);
+          
+          // Update progress
+          this.updateCalibrationProgress((i + 1) / totalSamples);
+          
+        }, sampleInterval * i);
       }
-    });
+    }
     
-    // Wait for user to look at point
+    // Wait for user to look at point (3.5 seconds for all samples)
     setTimeout(() => {
-      // Record calibration point
+      // Remove progress indicator
+      this.removeCalibrationProgress();
+      
+      // Show instructions again
+      if (this.calibrationInstructions) {
+        this.calibrationInstructions.style.display = 'block';
+      }
+      
+      // Record calibration point with all samples
       this.calibrationData.points.push({
         target: point,
         gaze: { ...this.currentGaze },
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        samples: calibrationSamples || []
       });
       
+      console.log(`✅ Calibration point ${this.calibrationData.points.length} completed with ${calibrationSamples.length} samples`);
+      
       onComplete();
-    }, 2000);
+    }, 3500);
+  }
+
+  /**
+   * Create progress indicator for calibration point
+   */
+  createCalibrationProgress(point) {
+    const progressRing = document.createElement('div');
+    progressRing.className = 'calibration-progress-ring';
+    progressRing.style.cssText = `
+      position: absolute;
+      left: ${point.x - 20}px;
+      top: ${point.y - 20}px;
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      z-index: 10001;
+      pointer-events: none;
+    `;
+    
+    const progressFill = document.createElement('div');
+    progressFill.className = 'calibration-progress-fill';
+    progressFill.style.cssText = `
+      position: absolute;
+      left: ${point.x - 18}px;
+      top: ${point.y - 18}px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #4CAF50 0%, transparent 0%);
+      z-index: 10001;
+      pointer-events: none;
+      transition: background 0.3s ease;
+    `;
+    
+    this.calibrationOverlay.appendChild(progressRing);
+    this.calibrationOverlay.appendChild(progressFill);
+    
+    this.progressRing = progressRing;
+    this.progressFill = progressFill;
+  }
+
+  /**
+   * Update calibration progress
+   */
+  updateCalibrationProgress(progress) {
+    if (this.progressFill) {
+      const percentage = Math.round(progress * 100);
+      this.progressFill.style.background = `conic-gradient(from 0deg, #4CAF50 ${percentage}%, transparent ${percentage}%)`;
+    }
+  }
+
+  /**
+   * Remove calibration progress indicator
+   */
+  removeCalibrationProgress() {
+    if (this.progressRing) {
+      this.progressRing.remove();
+      this.progressRing = null;
+    }
+    if (this.progressFill) {
+      this.progressFill.remove();
+      this.progressFill = null;
+    }
   }
 
   /**
@@ -885,6 +1160,7 @@ export class EyeTracker {
       this.calibrationOverlay.remove();
       this.calibrationOverlay = null;
       this.calibrationPoint = null;
+      this.calibrationInstructions = null;
     }
     
     // Save calibration status
@@ -915,19 +1191,44 @@ export class EyeTracker {
     }
     
     let totalError = 0;
+    let totalSamples = 0;
     
     this.calibrationData.points.forEach(point => {
-      const dx = point.target.x - point.gaze.x;
-      const dy = point.target.y - point.gaze.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      totalError += distance;
+      if (point.samples && point.samples.length > 0) {
+        // Use samples if available for more accurate calculation
+        point.samples.forEach(sample => {
+          if (sample.gazeData && sample.gazeData.x !== undefined) {
+            const dx = point.target.x - sample.gazeData.x;
+            const dy = point.target.y - sample.gazeData.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            totalError += distance;
+            totalSamples++;
+          }
+        });
+      } else if (point.gaze && point.gaze.x !== undefined) {
+        // Fallback to single gaze point
+        const dx = point.target.x - point.gaze.x;
+        const dy = point.target.y - point.gaze.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        totalError += distance;
+        totalSamples++;
+      }
     });
     
-    const averageError = totalError / this.calibrationData.points.length;
+    if (totalSamples === 0) {
+      this.calibrationData.accuracy = 0.5; // Default accuracy if no gaze data
+      return;
+    }
+    
+    const averageError = totalError / totalSamples;
     const maxError = Math.sqrt(window.innerWidth * window.innerWidth + window.innerHeight * window.innerHeight) / 4;
     
-    this.calibrationData.accuracy = Math.max(0, 1 - (averageError / maxError));
+    // Calculate accuracy with better scaling
+    const errorRatio = averageError / maxError;
+    this.calibrationData.accuracy = Math.max(0.1, Math.min(1.0, 1 - errorRatio));
     this.performance.calibrationAccuracy = this.calibrationData.accuracy;
+    
+    console.log(`📊 Calibration accuracy: ${Math.round(this.calibrationData.accuracy * 100)}% (avg error: ${Math.round(averageError)}px from ${totalSamples} samples)`);
   }
 
   /**

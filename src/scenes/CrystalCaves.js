@@ -30,6 +30,7 @@ export default class CrystalCaves {
     this.gameEngine = gameEngine;
     this.createUI();
     this.setupCrystals();
+    this.setupEyeTracking();
     
     console.log('💎 Crystal Caves scene initialized');
   }
@@ -78,6 +79,207 @@ export default class CrystalCaves {
     
     // Store reference for onclick handler
     window.crystalCaves = this;
+  }
+
+  /**
+   * Set up eye tracking for this scene
+   */
+  setupEyeTracking() {
+    if (this.gameEngine.inputManager && this.gameEngine.inputManager.inputMethods.has('eyeTracking')) {
+      const eyeTracker = this.gameEngine.inputManager.inputMethods.get('eyeTracking').instance;
+      
+      // Listen for calibration events
+      eyeTracker.on('calibrationNeeded', () => {
+        this.showCalibrationPrompt();
+      });
+      
+      eyeTracker.on('calibrationComplete', (data) => {
+        this.onCalibrationComplete(data);
+      });
+      
+      // Listen for gaze events
+      eyeTracker.on('gaze', (gazeData) => {
+        this.handleGaze(gazeData);
+      });
+      
+      // Listen for input events (dwell clicks)
+      this.gameEngine.inputManager.on('input', (inputData) => {
+        if (inputData.method === 'eyeTracking' && inputData.action === 'select') {
+          this.handleEyeSelect(inputData);
+        }
+      });
+    }
+  }
+
+  /**
+   * Show calibration prompt to user
+   */
+  showCalibrationPrompt() {
+    const prompt = document.createElement('div');
+    prompt.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 30px;
+      border-radius: 15px;
+      text-align: center;
+      z-index: 1000;
+      max-width: 500px;
+    `;
+    
+    prompt.innerHTML = `
+      <h2 style="color: #87CEEB; margin-top: 0;">👁️ Eye Tracking Setup</h2>
+      <p>To play Crystal Caves, we need to calibrate eye tracking.</p>
+      <p>You'll see 9 red dots appear on screen - look at each one until it disappears.</p>
+      <div style="margin: 20px 0;">
+        <button id="start-calibration" style="padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-right: 10px;">
+          Start Calibration
+        </button>
+        <button id="skip-calibration" style="padding: 12px 24px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+          Skip (Use Mouse)
+        </button>
+      </div>
+      <p style="font-size: 14px; color: #ccc;">Note: Make sure your camera is working and you're in good lighting.</p>
+    `;
+    
+    document.body.appendChild(prompt);
+    
+    // Add event listeners
+    document.getElementById('start-calibration').addEventListener('click', () => {
+      document.body.removeChild(prompt);
+      this.startEyeTracking();
+    });
+    
+    document.getElementById('skip-calibration').addEventListener('click', () => {
+      document.body.removeChild(prompt);
+      this.gameEngine.accessibilityManager?.announce('Eye tracking skipped. You can use mouse or keyboard instead.');
+    });
+  }
+
+  /**
+   * Start eye tracking and calibration
+   */
+  async startEyeTracking() {
+    try {
+      console.log('🚀 Starting eye tracking...');
+      
+      // Enable eye tracking input method
+      await this.gameEngine.inputManager.enableSecondaryInput('eyeTracking');
+      
+      // Get eye tracker instance
+      const eyeTracker = this.gameEngine.inputManager.inputMethods.get('eyeTracking').instance;
+      
+      if (!eyeTracker) {
+        throw new Error('Eye tracker not available');
+      }
+      
+      // Activate eye tracking
+      await eyeTracker.activate();
+      
+      // Start calibration
+      await eyeTracker.startCalibration();
+      
+      console.log('✅ Eye tracking started successfully');
+      
+    } catch (error) {
+      console.error('Failed to start eye tracking:', error);
+      
+      // Show user-friendly error message
+      const errorDialog = document.createElement('div');
+      errorDialog.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(200, 50, 50, 0.9);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        z-index: 1000;
+        max-width: 400px;
+      `;
+      
+      errorDialog.innerHTML = `
+        <h3>❌ Eye Tracking Failed</h3>
+        <p>Unable to start eye tracking. This could be due to:</p>
+        <ul style="text-align: left; margin: 10px 0;">
+          <li>Camera permissions denied</li>
+          <li>No camera available</li>
+          <li>Browser compatibility issues</li>
+        </ul>
+        <p>You can still play using mouse/keyboard controls.</p>
+        <button onclick="this.parentElement.remove()" style="padding: 8px 16px; background: white; color: #333; border: none; border-radius: 5px; cursor: pointer;">
+          Continue with Mouse/Keyboard
+        </button>
+      `;
+      
+      document.body.appendChild(errorDialog);
+    }
+  }
+
+  /**
+   * Handle calibration completion
+   */
+  onCalibrationComplete(data) {
+    const accuracy = Math.round(data.accuracy * 100);
+    
+    // Show completion message
+    const message = document.createElement('div');
+    message.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 150, 0, 0.9);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 1000;
+    `;
+    
+    message.innerHTML = `
+      <h3>✅ Calibration Complete!</h3>
+      <p>Accuracy: ${accuracy}%</p>
+      <p>You can now look at crystals to collect them!</p>
+    `;
+    
+    document.body.appendChild(message);
+    
+    setTimeout(() => {
+      if (message.parentNode) {
+        document.body.removeChild(message);
+      }
+    }, 3000);
+    
+    this.gameEngine.accessibilityManager?.announce(`Eye tracking calibration completed with ${accuracy}% accuracy. Look at crystals to collect them!`);
+  }
+
+  /**
+   * Handle gaze data (for visual feedback)
+   */
+  handleGaze(gazeData) {
+    // Could add gaze cursor or highlighting here
+    // For now, just update internal tracking
+    this.lastGazeTime = Date.now();
+  }
+
+  /**
+   * Handle eye selection (dwell click)
+   */
+  handleEyeSelect(inputData) {
+    if (inputData.data && inputData.data.element) {
+      const element = inputData.data.element;
+      
+      // Check if user looked at a crystal
+      if (element.classList.contains('crystal')) {
+        this.collectCrystal(element);
+      }
+    }
   }
 
   /**
@@ -280,9 +482,15 @@ export default class CrystalCaves {
     this.timeRemaining = 60;
     this.updateUI();
     
-    // Set up eye tracking if available
-    if (this.gameEngine.inputManager.getActiveInputMethods().includes('eyeTracking')) {
-      this.setupEyeTracking();
+    // Check if eye tracking is available and prompt for calibration
+    if (this.gameEngine.inputManager && this.gameEngine.inputManager.inputMethods.has('eyeTracking')) {
+      const eyeTracker = this.gameEngine.inputManager.inputMethods.get('eyeTracking').instance;
+      if (eyeTracker && !eyeTracker.isCalibrated) {
+        // Show calibration prompt immediately
+        setTimeout(() => {
+          this.showCalibrationPrompt();
+        }, 1000); // Give UI time to load
+      }
     }
     
     // Start game timer
@@ -301,30 +509,6 @@ export default class CrystalCaves {
     console.log('💎 Crystal Caves scene activated');
   }
 
-  /**
-   * Set up eye tracking interactions
-   */
-  setupEyeTracking() {
-    if (this.gameEngine.inputManager.inputMethods.has('eyeTracking')) {
-      const eyeTracker = this.gameEngine.inputManager.inputMethods.get('eyeTracking').instance;
-      
-      // Listen for gaze events
-      eyeTracker.on('gazeEnter', (data) => {
-        if (data.element.classList.contains('crystal')) {
-          // Visual feedback for gaze
-          data.element.classList.add('gaze-hover');
-        }
-      });
-      
-      eyeTracker.on('gazeLeave', (data) => {
-        if (data.element.classList.contains('crystal')) {
-          data.element.classList.remove('gaze-hover');
-        }
-      });
-      
-      // Handle dwell clicks automatically through eye tracker
-    }
-  }
 
   /**
    * Start game timer

@@ -62,20 +62,26 @@ export class AudioManager {
     this.gameEngine = gameEngine;
     
     try {
+      console.log('🔊 Initializing AudioManager...');
+      
       // Initialize Web Audio Context
       await this.initializeAudioContext();
       
       // Set up audio nodes
       this.setupAudioNodes();
       
-      // Load user preferences
-      this.loadUserSettings();
+      // Load user preferences (delayed to ensure StateManager is ready)
+      setTimeout(() => {
+        this.loadUserSettings();
+      }, 100);
       
-      // Preload essential sounds
-      await this.preloadEssentialAudio();
+      // Preload essential sounds (make this non-blocking)
+      this.preloadEssentialAudio().catch(error => {
+        console.warn('Some audio files failed to load:', error);
+      });
       
       this.isInitialized = true;
-      console.log('✅ AudioManager initialized');
+      console.log('✅ AudioManager initialized successfully');
       
     } catch (error) {
       console.error('❌ Failed to initialize AudioManager:', error);
@@ -156,16 +162,22 @@ export class AudioManager {
    * Load user audio settings
    */
   loadUserSettings() {
-    if (this.gameEngine?.stateManager) {
-      const settings = this.gameEngine.stateManager.getStateValue('settings');
-      if (settings) {
-        this.setMasterVolume(settings.volume || this.config.masterVolume);
-        this.setSFXVolume(settings.sfxVolume || this.config.sfxVolume);
-        
-        if (settings.accessibility) {
-          this.config.enableAudioDescriptions = settings.accessibility.audioDescriptions !== false;
+    try {
+      if (this.gameEngine?.stateManager) {
+        const settings = this.gameEngine.stateManager.getStateValue('settings');
+        if (settings) {
+          // Use skipSave=true during initialization to prevent circular calls
+          this.setMasterVolume(settings.volume || this.config.masterVolume, true);
+          this.setSFXVolume(settings.sfxVolume || this.config.sfxVolume, true);
+          
+          if (settings.accessibility) {
+            this.config.enableAudioDescriptions = settings.accessibility.audioDescriptions !== false;
+          }
         }
       }
+    } catch (error) {
+      console.warn('Failed to load user audio settings:', error);
+      // Continue with default settings
     }
   }
 
@@ -446,15 +458,15 @@ export class AudioManager {
   /**
    * Set master volume
    */
-  setMasterVolume(volume) {
+  setMasterVolume(volume, skipSave = false) {
     this.config.masterVolume = Math.max(0, Math.min(1, volume));
     
     if (this.masterGain) {
       this.masterGain.gain.value = this.config.masterVolume;
     }
     
-    // Save to user preferences
-    if (this.gameEngine?.stateManager) {
+    // Save to user preferences (avoid circular dependency)
+    if (!skipSave && this.gameEngine?.stateManager) {
       this.gameEngine.stateManager.updateSettings('volume', this.config.masterVolume);
     }
   }
@@ -473,15 +485,15 @@ export class AudioManager {
   /**
    * Set SFX volume
    */
-  setSFXVolume(volume) {
+  setSFXVolume(volume, skipSave = false) {
     this.config.sfxVolume = Math.max(0, Math.min(1, volume));
     
     if (this.sfxGain) {
       this.sfxGain.gain.value = this.config.sfxVolume;
     }
     
-    // Save to user preferences
-    if (this.gameEngine?.stateManager) {
+    // Save to user preferences (avoid circular dependency)
+    if (!skipSave && this.gameEngine?.stateManager) {
       this.gameEngine.stateManager.updateSettings('sfxVolume', this.config.sfxVolume);
     }
   }

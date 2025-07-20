@@ -72,10 +72,24 @@ export class SceneManager {
    * Load initial scene based on game state
    */
   async loadInitialScene() {
-    const gameState = this.gameEngine.getState();
-    const targetScene = gameState.currentScene || 'menu';
-    
-    await this.loadScene(targetScene);
+    try {
+      const gameState = this.gameEngine.getState();
+      const targetScene = gameState.currentScene || 'menu';
+      
+      console.log(`🎯 Starting with scene: ${targetScene}`);
+      
+      // Use transitionTo instead of loadScene to actually activate the scene
+      await this.transitionTo(targetScene);
+      
+    } catch (error) {
+      console.error('Failed to load initial scene:', error);
+      // Fallback to menu scene if there's an error
+      try {
+        await this.transitionTo('menu');
+      } catch (fallbackError) {
+        console.error('Failed to load fallback menu scene:', fallbackError);
+      }
+    }
   }
 
   /**
@@ -190,7 +204,11 @@ export class SceneManager {
     
     // Activate new scene
     if (newScene.activate) {
+      console.log(`🎬 Activating scene: ${newScene.name}`);
       await newScene.activate();
+      console.log(`✅ Scene activated: ${newScene.name}`);
+    } else {
+      console.warn(`⚠️ Scene ${newScene.name} has no activate method`);
     }
     
     // Complete transition effect

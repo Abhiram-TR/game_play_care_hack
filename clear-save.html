@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear GazeQuest Save Data</title>
+</head>
+<body>
+    <h1>Clear GazeQuest Save Data</h1>
+    <button onclick="clearSave()">Clear Save Data & Unlock All Realms</button>
+    <div id="status"></div>
+    
+    <script>
+        function clearSave() {
+            // Clear localStorage
+            localStorage.removeItem('gazequest_state');
+            
+            // Set fresh state with all realms unlocked
+            const freshState = {
+                currentScene: 'menu',
+                level: 1,
+                experience: 0,
+                achievements: [],
+                unlockedRealms: ['crystal_caves', 'wind_valley', 'motion_mountains', 'switch_sanctuary'],
+                settings: {
+                    inputMethod: 'auto',
+                    volume: 0.7,
+                    sfxVolume: 0.8,
+                    accessibility: {
+                        highContrast: false,
+                        textSize: 'normal',
+                        reducedMotion: false,
+                        screenReader: false,
+                        audioDescriptions: true
+                    }
+                },
+                session: {
+                    startTime: Date.now(),
+                    totalPlayTime: 0,
+                    inputMethodChanges: 0,
+                    errorsEncountered: [],
+                    adaptiveAdjustments: []
+                },
+                performance: {
+                    inputLatency: [],
+                    frameTimes: [],
+                    errorCount: 0
+                }
+            };
+            
+            localStorage.setItem('gazequest_state', JSON.stringify(freshState));
+            
+            document.getElementById('status').innerHTML = '<p style="color: green;">✅ Save data cleared and all realms unlocked! You can now close this page and play the game.</p>';
+        }
+    </script>
+</body>
+</html>
