@@ -49,8 +49,6 @@ export default class MenuScene {
    */
   createUI() {
     this.createMainMenu();
-    this.createInputMethodSelector();
-    this.createAccessibilityControls();
   }
 
   /**
@@ -80,7 +78,7 @@ export default class MenuScene {
     
     // Create title
     const title = document.createElement('h1');
-    title.textContent = 'GazeQuest Adventures';
+    title.textContent = '🎯 Click & Score!';
     title.style.cssText = `
       font-size: 4rem;
       color: white;
@@ -93,7 +91,7 @@ export default class MenuScene {
     
     // Create subtitle
     const subtitle = document.createElement('p');
-    subtitle.textContent = 'Inclusive Gaming for Everyone';
+    subtitle.textContent = 'Simple & Fun Game for Everyone';
     subtitle.style.cssText = `
       font-size: 1.5rem;
       color: rgba(255, 255, 255, 0.9);
@@ -112,45 +110,123 @@ export default class MenuScene {
       align-items: center;
     `;
     
-    // Create menu buttons
-    const menuButtons = [
+    // Create game selection buttons
+    const gameButtons = [
       { 
-        text: 'Start Adventure', 
-        action: 'startGame',
-        description: 'Begin your accessible gaming journey'
-      },
-      { 
-        text: 'Tutorial', 
-        action: 'showTutorial',
-        description: 'Learn how to play with your preferred input method'
-      },
-      { 
-        text: 'Accessibility Settings', 
-        action: 'showAccessibilitySettings',
-        description: 'Customize the game for your needs'
-      },
-      { 
-        text: 'Input Methods', 
-        action: 'showInputMethods',
-        description: 'Choose and calibrate your input method'
-      },
-      { 
-        text: 'About', 
-        action: 'showAbout',
-        description: 'Learn about GazeQuest Adventures'
+        text: '🎯 Click & Score!', 
+        action: 'playGame',
+        gameId: 'simple_game',
+        description: 'Click the colorful circles to score points - fun and easy for everyone!',
+        difficulty: 'Fun & Easy',
+        inputMethod: 'Click/Touch'
       }
     ];
     
-    menuButtons.forEach((buttonData, index) => {
-      const button = this.createMenuButton(buttonData, index);
-      menuContainer.appendChild(button);
+    
+    // Create games section
+    const gamesSection = document.createElement('div');
+    gamesSection.style.cssText = `
+      margin-bottom: 2rem;
+    `;
+    
+    const gamesTitle = document.createElement('h3');
+    gamesTitle.textContent = 'Ready to Play?';
+    gamesTitle.style.cssText = `
+      text-align: center;
+      color: #87CEEB;
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+    `;
+    gamesSection.appendChild(gamesTitle);
+    
+    const gamesGrid = document.createElement('div');
+    gamesGrid.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    `;
+    
+    gameButtons.forEach((buttonData, index) => {
+      const button = this.createGameButton(buttonData, index);
+      gamesGrid.appendChild(button);
       this.menuItems.push(button);
     });
+    
+    gamesSection.appendChild(gamesGrid);
+    menuContainer.appendChild(gamesSection);
     
     menuOverlay.appendChild(menuContainer);
     gameContainer.appendChild(menuOverlay);
     
     this.menuOverlay = menuOverlay;
+  }
+
+  /**
+   * Create a game selection button
+   */
+  createGameButton(buttonData, index) {
+    const button = document.createElement('button');
+    button.className = 'game-button focusable click-interactive';
+    button.setAttribute('data-action', buttonData.action);
+    button.setAttribute('data-game-id', buttonData.gameId);
+    button.setAttribute('aria-label', `${buttonData.text}. ${buttonData.description}. Difficulty: ${buttonData.difficulty}. Input: ${buttonData.inputMethod}`);
+    button.setAttribute('title', buttonData.description);
+    
+    button.style.cssText = `
+      min-height: 150px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      text-align: left;
+    `;
+    
+    button.innerHTML = `
+      <div style="font-size: 2rem; margin-bottom: 10px;">${buttonData.text.split(' ')[0]}</div>
+      <div>
+        <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 8px;">
+          ${buttonData.text.substring(buttonData.text.indexOf(' ') + 1)}
+        </div>
+        <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 12px;">
+          ${buttonData.description}
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+          <span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px;">
+            ${buttonData.inputMethod}
+          </span>
+          <span style="background: rgba(0,255,0,0.3); padding: 4px 8px; border-radius: 12px;">
+            ${buttonData.difficulty}
+          </span>
+        </div>
+      </div>
+    `;
+    
+    // Add event listeners
+    button.addEventListener('click', () => this.handleMenuAction(buttonData.action, buttonData.gameId));
+    button.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        this.handleMenuAction(buttonData.action, buttonData.gameId);
+      }
+    });
+    
+    // Hover effects
+    button.addEventListener('mouseenter', () => this.highlightGameButton(button));
+    button.addEventListener('mouseleave', () => this.unhighlightGameButton(button));
+    button.addEventListener('focus', () => this.highlightGameButton(button));
+    button.addEventListener('blur', () => this.unhighlightGameButton(button));
+    
+    return button;
   }
 
   /**
@@ -221,160 +297,6 @@ export default class MenuScene {
     return button;
   }
 
-  /**
-   * Create input method selector
-   */
-  createInputMethodSelector() {
-    const selector = document.createElement('div');
-    selector.id = 'input-method-selector';
-    selector.className = 'input-selector';
-    selector.style.cssText = `
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      background: rgba(0, 0, 0, 0.7);
-      border-radius: 10px;
-      padding: 15px;
-      color: white;
-      min-width: 200px;
-    `;
-    
-    // Title
-    const title = document.createElement('h3');
-    title.textContent = 'Input Method';
-    title.style.cssText = `
-      margin: 0 0 10px 0;
-      font-size: 1rem;
-      color: var(--color-accent);
-    `;
-    selector.appendChild(title);
-    
-    // Current method display
-    const currentMethod = document.createElement('div');
-    currentMethod.id = 'current-input-method';
-    currentMethod.textContent = 'Keyboard';
-    currentMethod.style.cssText = `
-      font-weight: bold;
-      margin-bottom: 10px;
-    `;
-    selector.appendChild(currentMethod);
-    
-    // Switch button
-    const switchButton = document.createElement('button');
-    switchButton.textContent = 'Change Method';
-    switchButton.className = 'button--small focusable';
-    switchButton.addEventListener('click', () => this.showInputMethodDialog());
-    selector.appendChild(switchButton);
-    
-    this.menuOverlay.appendChild(selector);
-  }
-
-  /**
-   * Create accessibility controls
-   */
-  createAccessibilityControls() {
-    const controls = document.createElement('div');
-    controls.id = 'accessibility-quick-controls';
-    controls.style.cssText = `
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: rgba(0, 0, 0, 0.7);
-      border-radius: 10px;
-      padding: 15px;
-      color: white;
-    `;
-    
-    // Title
-    const title = document.createElement('h3');
-    title.textContent = 'Quick Settings';
-    title.style.cssText = `
-      margin: 0 0 10px 0;
-      font-size: 1rem;
-      color: var(--color-accent);
-    `;
-    controls.appendChild(title);
-    
-    // High contrast toggle
-    const contrastToggle = this.createToggleButton('High Contrast', 'highContrast', false);
-    controls.appendChild(contrastToggle);
-    
-    // Large text toggle
-    const textToggle = this.createToggleButton('Large Text', 'largeText', false);
-    controls.appendChild(textToggle);
-    
-    // Reduced motion toggle
-    const motionToggle = this.createToggleButton('Reduced Motion', 'reducedMotion', false);
-    controls.appendChild(motionToggle);
-    
-    this.menuOverlay.appendChild(controls);
-  }
-
-  /**
-   * Create toggle button
-   */
-  createToggleButton(label, setting, initialValue) {
-    const container = document.createElement('div');
-    container.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    `;
-    
-    const labelEl = document.createElement('label');
-    labelEl.textContent = label;
-    labelEl.style.cssText = `
-      font-size: 0.9rem;
-      margin-right: 10px;
-    `;
-    
-    const toggle = document.createElement('button');
-    toggle.className = 'toggle-button focusable';
-    toggle.setAttribute('role', 'switch');
-    toggle.setAttribute('aria-checked', initialValue);
-    toggle.setAttribute('aria-label', `Toggle ${label}`);
-    toggle.style.cssText = `
-      width: 40px;
-      height: 20px;
-      background: ${initialValue ? 'var(--color-success)' : '#666'};
-      border: none;
-      border-radius: 10px;
-      position: relative;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    `;
-    
-    const slider = document.createElement('div');
-    slider.style.cssText = `
-      width: 16px;
-      height: 16px;
-      background: white;
-      border-radius: 50%;
-      position: absolute;
-      top: 2px;
-      left: ${initialValue ? '22px' : '2px'};
-      transition: left 0.3s ease;
-    `;
-    toggle.appendChild(slider);
-    
-    // Toggle functionality
-    let isToggled = initialValue;
-    toggle.addEventListener('click', () => {
-      isToggled = !isToggled;
-      toggle.setAttribute('aria-checked', isToggled);
-      toggle.style.background = isToggled ? 'var(--color-success)' : '#666';
-      slider.style.left = isToggled ? '22px' : '2px';
-      
-      // Apply setting
-      this.applyAccessibilitySetting(setting, isToggled);
-    });
-    
-    container.appendChild(labelEl);
-    container.appendChild(toggle);
-    
-    return container;
-  }
 
   /**
    * Set up event listeners
@@ -510,10 +432,30 @@ export default class MenuScene {
   }
 
   /**
+   * Highlight game button
+   */
+  highlightGameButton(button) {
+    button.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))';
+    button.style.borderColor = 'rgba(255, 255, 255, 0.6)';
+    button.style.transform = 'translateY(-5px) scale(1.02)';
+    button.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.3)';
+  }
+
+  /**
+   * Unhighlight game button
+   */
+  unhighlightGameButton(button) {
+    button.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))';
+    button.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+    button.style.transform = 'translateY(0) scale(1)';
+    button.style.boxShadow = 'none';
+  }
+
+  /**
    * Handle menu actions
    */
-  handleMenuAction(action) {
-    console.log(`Menu action: ${action}`);
+  handleMenuAction(action, gameId = null) {
+    console.log(`Menu action: ${action}`, gameId ? `Game: ${gameId}` : '');
     
     // Play click sound
     if (this.gameEngine.audioManager) {
@@ -522,10 +464,16 @@ export default class MenuScene {
     
     // Announce action
     if (this.gameEngine.accessibilityManager) {
-      this.gameEngine.accessibilityManager.announce(`Selected ${action.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
+      const actionText = gameId ? `Starting ${gameId.replace('_', ' ')}` : action.replace(/([A-Z])/g, ' $1').toLowerCase();
+      this.gameEngine.accessibilityManager.announce(`Selected ${actionText}`);
     }
     
     switch (action) {
+      case 'playGame':
+        if (gameId) {
+          this.selectRealm(gameId);
+        }
+        break;
       case 'startGame':
         this.startGame();
         break;
@@ -605,8 +553,8 @@ export default class MenuScene {
       {
         id: 'crystal_caves',
         name: '🔮 Crystal Caves',
-        description: 'Eye tracking adventure in mystical crystal caverns',
-        inputMethod: 'Eye Tracking',
+        description: 'Mouse clicking adventure in mystical crystal caverns',
+        inputMethod: 'Mouse Clicking',
         difficulty: 'Beginner'
       },
       {

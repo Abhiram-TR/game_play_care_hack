@@ -334,17 +334,6 @@ textarea:focus {
   pointer-events: auto;
 }
 
-/* Input selector */
-.input-selector {
-  position: absolute;
-  top: var(--spacing-md);
-  left: var(--spacing-md);
-  background: var(--bg-overlay);
-  backdrop-filter: blur(10px);
-  border-radius: var(--border-radius-lg);
-  padding: var(--spacing-md);
-  color: var(--text-inverse);
-}
 
 /* Game controls */
 .game-controls {
@@ -360,34 +349,6 @@ textarea:focus {
   padding: var(--spacing-sm);
 }
 
-/* Progress indicator */
-.progress-indicator {
-  position: absolute;
-  top: var(--spacing-md);
-  right: var(--spacing-md);
-  background: var(--bg-overlay);
-  backdrop-filter: blur(10px);
-  border-radius: var(--border-radius-lg);
-  padding: var(--spacing-md);
-  color: var(--text-inverse);
-  min-width: 200px;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: var(--border-radius-full);
-  overflow: hidden;
-  margin-top: var(--spacing-sm);
-}
-
-.progress-bar__fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--color-success), var(--color-accent));
-  border-radius: var(--border-radius-full);
-  transition: width var(--transition-base);
-}
 
 /* Switch control highlighting */
 .switch-highlight {
@@ -453,14 +414,30 @@ textarea:focus {
 
 /* Responsive design */
 @media (max-width: 768px) {
-  .input-selector,
+  .input-selector {
+    position: fixed;
+    top: var(--spacing-sm);
+    left: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: auto;
+    max-width: none;
+    font-size: 0.8rem;
+    padding: var(--spacing-xs);
+  }
+  
   .progress-indicator {
-    position: relative;
-    margin: var(--spacing-sm);
-    width: calc(100% - var(--spacing-md));
+    position: fixed;
+    top: 70px; /* Below input selector */
+    left: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: auto;
+    max-width: none;
+    font-size: 0.8rem;
+    padding: var(--spacing-xs);
   }
   
   .game-controls {
+    position: fixed;
     bottom: var(--spacing-sm);
     left: var(--spacing-sm);
     right: var(--spacing-sm);

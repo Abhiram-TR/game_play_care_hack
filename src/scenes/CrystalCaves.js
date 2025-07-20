@@ -1,12 +1,12 @@
 /**
- * Crystal Caves scene - Eye tracking focused realm
+ * Crystal Caves scene - Mouse clicking focused realm
  * First playable realm in GazeQuest Adventures
  */
 
 export default class CrystalCaves {
   constructor() {
     this.name = 'crystal_caves';
-    this.description = 'Mystical caves filled with glowing crystals that respond to your gaze';
+    this.description = 'Mystical caves filled with glowing crystals that respond to your clicks';
     this.gameEngine = null;
     this.isActive = false;
     
@@ -16,9 +16,10 @@ export default class CrystalCaves {
     this.level = 1;
     this.timeRemaining = 60;
     
-    // Eye tracking specific
-    this.gazeTargets = [];
-    this.lastGazeTime = 0;
+    // Mouse clicking specific
+    this.clickTargets = [];
+    this.lastClickTime = 0;
+    this.animationFrameId = null;
     
     this.ui = null;
   }
@@ -30,7 +31,7 @@ export default class CrystalCaves {
     this.gameEngine = gameEngine;
     this.createUI();
     this.setupCrystals();
-    this.setupEyeTracking();
+    this.setupMouseClicking();
     
     console.log('💎 Crystal Caves scene initialized');
   }
@@ -65,12 +66,12 @@ export default class CrystalCaves {
       
       <div class="cave-instructions" style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; color: white; max-width: 300px;">
         <h3 style="margin-top: 0;">Crystal Caves</h3>
-        <p style="margin-bottom: 0;">Look at the glowing crystals to collect them. Keep your gaze steady!</p>
+        <p style="margin-bottom: 0;">Click on the glowing crystals to collect them. Be quick and accurate!</p>
       </div>
       
       <div class="cave-crystals" id="cave-crystals" style="position: relative; width: 100%; height: 100%;"></div>
       
-      <button class="cave-back-btn" style="position: absolute; bottom: 20px; left: 20px; padding: 10px 20px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 20px; color: white; cursor: pointer;" onclick="window.crystalCaves?.returnToMenu()">
+      <button class="cave-back-btn" id="cave-back-btn" style="position: absolute; bottom: 20px; left: 20px; padding: 10px 20px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 20px; color: white; cursor: pointer;">
         Back to Menu
       </button>
     `;
@@ -82,196 +83,108 @@ export default class CrystalCaves {
   }
 
   /**
-   * Set up eye tracking for this scene
+   * Set up mouse clicking for this scene
    */
-  setupEyeTracking() {
-    if (this.gameEngine.inputManager && this.gameEngine.inputManager.inputMethods.has('eyeTracking')) {
-      const eyeTracker = this.gameEngine.inputManager.inputMethods.get('eyeTracking').instance;
-      
-      // Listen for calibration events
-      eyeTracker.on('calibrationNeeded', () => {
-        this.showCalibrationPrompt();
+  setupMouseClicking() {
+    // Listen for mouse clicks on the UI container
+    if (this.ui) {
+      this.ui.addEventListener('click', (event) => {
+        this.handleMouseClick(event);
       });
       
-      eyeTracker.on('calibrationComplete', (data) => {
-        this.onCalibrationComplete(data);
+      // Add mouse move for hover effects
+      this.ui.addEventListener('mousemove', (event) => {
+        this.handleMouseMove(event);
       });
       
-      // Listen for gaze events
-      eyeTracker.on('gaze', (gazeData) => {
-        this.handleGaze(gazeData);
-      });
+      // Add back button event listener
+      const backBtn = this.ui.querySelector('#cave-back-btn');
+      if (backBtn) {
+        console.log('Back button found and event listener added');
+        backBtn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          console.log('Back button clicked, returning to menu');
+          this.returnToMenu();
+        });
+      } else {
+        console.error('Back button not found in Crystal Caves UI');
+      }
+    }
+  }
+
+  /**
+   * Handle mouse click events
+   */
+  handleMouseClick(event) {
+    try {
+      if (!this.ui || !event) return;
       
-      // Listen for input events (dwell clicks)
-      this.gameEngine.inputManager.on('input', (inputData) => {
-        if (inputData.method === 'eyeTracking' && inputData.action === 'select') {
-          this.handleEyeSelect(inputData);
+      const rect = this.ui.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      
+      // Check if click hit any crystals
+      this.crystals.forEach((crystal) => {
+        if (crystal && crystal.element && this.isPointInCrystal(x, y, crystal)) {
+          this.collectCrystal(crystal.element);
         }
       });
-    }
-  }
-
-  /**
-   * Show calibration prompt to user
-   */
-  showCalibrationPrompt() {
-    const prompt = document.createElement('div');
-    prompt.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      padding: 30px;
-      border-radius: 15px;
-      text-align: center;
-      z-index: 1000;
-      max-width: 500px;
-    `;
-    
-    prompt.innerHTML = `
-      <h2 style="color: #87CEEB; margin-top: 0;">👁️ Eye Tracking Setup</h2>
-      <p>To play Crystal Caves, we need to calibrate eye tracking.</p>
-      <p>You'll see 9 red dots appear on screen - look at each one until it disappears.</p>
-      <div style="margin: 20px 0;">
-        <button id="start-calibration" style="padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-right: 10px;">
-          Start Calibration
-        </button>
-        <button id="skip-calibration" style="padding: 12px 24px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
-          Skip (Use Mouse)
-        </button>
-      </div>
-      <p style="font-size: 14px; color: #ccc;">Note: Make sure your camera is working and you're in good lighting.</p>
-    `;
-    
-    document.body.appendChild(prompt);
-    
-    // Add event listeners
-    document.getElementById('start-calibration').addEventListener('click', () => {
-      document.body.removeChild(prompt);
-      this.startEyeTracking();
-    });
-    
-    document.getElementById('skip-calibration').addEventListener('click', () => {
-      document.body.removeChild(prompt);
-      this.gameEngine.accessibilityManager?.announce('Eye tracking skipped. You can use mouse or keyboard instead.');
-    });
-  }
-
-  /**
-   * Start eye tracking and calibration
-   */
-  async startEyeTracking() {
-    try {
-      console.log('🚀 Starting eye tracking...');
-      
-      // Enable eye tracking input method
-      await this.gameEngine.inputManager.enableSecondaryInput('eyeTracking');
-      
-      // Get eye tracker instance
-      const eyeTracker = this.gameEngine.inputManager.inputMethods.get('eyeTracking').instance;
-      
-      if (!eyeTracker) {
-        throw new Error('Eye tracker not available');
-      }
-      
-      // Activate eye tracking
-      await eyeTracker.activate();
-      
-      // Start calibration
-      await eyeTracker.startCalibration();
-      
-      console.log('✅ Eye tracking started successfully');
-      
     } catch (error) {
-      console.error('Failed to start eye tracking:', error);
-      
-      // Show user-friendly error message
-      const errorDialog = document.createElement('div');
-      errorDialog.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(200, 50, 50, 0.9);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        z-index: 1000;
-        max-width: 400px;
-      `;
-      
-      errorDialog.innerHTML = `
-        <h3>❌ Eye Tracking Failed</h3>
-        <p>Unable to start eye tracking. This could be due to:</p>
-        <ul style="text-align: left; margin: 10px 0;">
-          <li>Camera permissions denied</li>
-          <li>No camera available</li>
-          <li>Browser compatibility issues</li>
-        </ul>
-        <p>You can still play using mouse/keyboard controls.</p>
-        <button onclick="this.parentElement.remove()" style="padding: 8px 16px; background: white; color: #333; border: none; border-radius: 5px; cursor: pointer;">
-          Continue with Mouse/Keyboard
-        </button>
-      `;
-      
-      document.body.appendChild(errorDialog);
+      console.error('Error in handleMouseClick:', error);
     }
   }
 
   /**
-   * Handle calibration completion
+   * Handle mouse move events for hover effects
    */
-  onCalibrationComplete(data) {
-    const accuracy = Math.round(data.accuracy * 100);
-    
-    // Show completion message
-    const message = document.createElement('div');
-    message.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 150, 0, 0.9);
-      color: white;
-      padding: 20px;
-      border-radius: 10px;
-      text-align: center;
-      z-index: 1000;
-    `;
-    
-    message.innerHTML = `
-      <h3>✅ Calibration Complete!</h3>
-      <p>Accuracy: ${accuracy}%</p>
-      <p>You can now look at crystals to collect them!</p>
-    `;
-    
-    document.body.appendChild(message);
-    
-    setTimeout(() => {
-      if (message.parentNode) {
-        document.body.removeChild(message);
+  handleMouseMove(event) {
+    try {
+      if (!this.ui || !event) return;
+      
+      const rect = this.ui.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      
+      // Add hover effects to crystals
+      this.crystals.forEach((crystal) => {
+        if (crystal && crystal.element) {
+          const crystalEl = crystal.element;
+          if (this.isPointInCrystal(x, y, crystal)) {
+            crystalEl.style.transform = 'scale(1.2)';
+            crystalEl.style.filter = 'brightness(1.5)';
+          } else {
+            crystalEl.style.transform = 'scale(1)';
+            crystalEl.style.filter = 'brightness(1)';
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error in handleMouseMove:', error);
+    }
+  }
+
+  /**
+   * Check if a point is inside a crystal
+   */
+  isPointInCrystal(x, y, crystal) {
+    try {
+      if (!crystal || typeof crystal.x !== 'number' || typeof crystal.y !== 'number' || typeof crystal.size !== 'number') {
+        return false;
       }
-    }, 3000);
-    
-    this.gameEngine.accessibilityManager?.announce(`Eye tracking calibration completed with ${accuracy}% accuracy. Look at crystals to collect them!`);
+      const dx = x - crystal.x;
+      const dy = y - crystal.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return distance <= crystal.size / 2;
+    } catch (error) {
+      console.error('Error in isPointInCrystal:', error);
+      return false;
+    }
   }
 
   /**
-   * Handle gaze data (for visual feedback)
+   * Handle click events (unified handler for different input methods)
    */
-  handleGaze(gazeData) {
-    // Could add gaze cursor or highlighting here
-    // For now, just update internal tracking
-    this.lastGazeTime = Date.now();
-  }
-
-  /**
-   * Handle eye selection (dwell click)
-   */
-  handleEyeSelect(inputData) {
+  handleClick(inputData) {
     if (inputData.data && inputData.data.element) {
       const element = inputData.data.element;
       
@@ -289,20 +202,34 @@ export default class CrystalCaves {
     this.crystals = [];
     const crystalContainer = this.ui.querySelector('#cave-crystals');
     
+    if (!crystalContainer) {
+      console.error('Crystal container not found!');
+      return;
+    }
+    
     // Create initial crystals
     for (let i = 0; i < 5; i++) {
       this.createCrystal(crystalContainer);
     }
+    
+    console.log(`Created ${this.crystals.length} crystals`);
   }
 
   /**
    * Create a crystal target
    */
   createCrystal(container) {
+    if (!container) {
+      console.error('No container provided for crystal creation');
+      return null;
+    }
+    
     const crystal = document.createElement('div');
-    crystal.className = 'crystal gaze-interactive';
-    crystal.setAttribute('data-gaze-target', 'true');
-    crystal.setAttribute('aria-label', 'Crystal - Look to collect');
+    const crystalId = `crystal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    crystal.id = crystalId;
+    crystal.className = 'crystal click-interactive';
+    crystal.setAttribute('data-click-target', 'true');
+    crystal.setAttribute('aria-label', 'Crystal - Click to collect');
     
     // Random position
     const x = Math.random() * (window.innerWidth - 100);
@@ -332,7 +259,7 @@ export default class CrystalCaves {
           50% { transform: scale(1.1); box-shadow: 0 0 30px #00ffff, 0 0 40px #00ffff; }
         }
         
-        .crystal:hover, .crystal.gaze-hover {
+        .crystal:hover, .crystal.click-hover {
           transform: scale(1.2);
           box-shadow: 0 0 40px #00ffff, 0 0 60px #00ffff;
         }
@@ -349,21 +276,26 @@ export default class CrystalCaves {
       document.head.appendChild(style);
     }
     
-    // Add click handler for non-gaze users
-    crystal.addEventListener('click', () => this.collectCrystal(crystal));
+    // Add click handler for crystal clicks
+    crystal.addEventListener('click', (event) => {
+      event.stopPropagation(); // Prevent event bubbling
+      this.collectCrystal(crystal);
+    });
     
     container.appendChild(crystal);
     
     const crystalData = {
+      id: crystalId,
       element: crystal,
       x: x,
       y: y,
+      size: 60,
       collected: false,
       value: 10
     };
     
     this.crystals.push(crystalData);
-    this.gazeTargets.push(crystal);
+    this.clickTargets.push(crystal);
     
     return crystalData;
   }
@@ -372,47 +304,60 @@ export default class CrystalCaves {
    * Collect a crystal
    */
   collectCrystal(crystalElement) {
-    const crystalData = this.crystals.find(c => c.element === crystalElement);
-    if (!crystalData || crystalData.collected) return;
-    
-    crystalData.collected = true;
-    
-    // Visual feedback
-    crystalElement.classList.add('collecting');
-    
-    // Audio feedback
-    if (this.gameEngine.audioManager) {
-      this.gameEngine.audioManager.playSFX('success');
-    }
-    
-    // Update score
-    this.score += crystalData.value;
-    this.updateUI();
-    
-    // Announce collection
-    if (this.gameEngine.accessibilityManager) {
-      this.gameEngine.accessibilityManager.announce(`Crystal collected! Score: ${this.score}`);
-    }
-    
-    // Remove crystal after animation
-    setTimeout(() => {
-      if (crystalElement.parentNode) {
-        crystalElement.parentNode.removeChild(crystalElement);
+    try {
+      if (!crystalElement) return;
+      
+      const crystalData = this.crystals.find(c => c.element === crystalElement);
+      
+      if (!crystalData || crystalData.collected) {
+        return;
       }
       
-      // Remove from arrays
-      this.crystals = this.crystals.filter(c => c !== crystalData);
-      this.gazeTargets = this.gazeTargets.filter(t => t !== crystalElement);
+      crystalData.collected = true;
       
-      // Create new crystal
-      const container = this.ui.querySelector('#cave-crystals');
-      this.createCrystal(container);
+      // Visual feedback
+      crystalElement.classList.add('collecting');
       
-    }, 500);
-    
-    // Check level progression
-    if (this.score >= this.level * 50) {
-      this.levelUp();
+      // Audio feedback
+      if (this.gameEngine.audioManager) {
+        this.gameEngine.audioManager.playSFX('success');
+      }
+      
+      // Update score
+      this.score += crystalData.value;
+      this.updateUI();
+      
+      // Announce collection
+      if (this.gameEngine.accessibilityManager) {
+        this.gameEngine.accessibilityManager.announce(`Crystal collected! Score: ${this.score}`);
+      }
+      
+      // Remove crystal after animation
+      setTimeout(() => {
+        if (crystalElement.parentNode) {
+          crystalElement.parentNode.removeChild(crystalElement);
+        }
+        
+        // Remove from arrays
+        this.crystals = this.crystals.filter(c => c !== crystalData);
+        this.clickTargets = this.clickTargets.filter(t => t !== crystalElement);
+        
+        // Create new crystal
+        const container = this.ui.querySelector('#cave-crystals');
+        if (container) {
+          this.createCrystal(container);
+        } else {
+          console.error('Crystal container not found when trying to create new crystal');
+        }
+        
+      }, 500);
+      
+      // Check level progression
+      if (this.score >= this.level * 50) {
+        this.levelUp();
+      }
+    } catch (error) {
+      console.error('Error in collectCrystal:', error);
     }
   }
 
@@ -428,18 +373,174 @@ export default class CrystalCaves {
       this.gameEngine.audioManager.playSFX('achievement');
     }
     
+    // Special celebrations every 5 levels
+    const isMilestone = this.level % 5 === 0;
+    if (isMilestone) {
+      this.celebrateMilestone();
+    }
+    
     // Announce level up
+    const announcement = isMilestone 
+      ? `Amazing! Level ${this.level} reached! Special milestone celebration!`
+      : `Level up! Now level ${this.level}. Bonus time added!`;
+    
     if (this.gameEngine.accessibilityManager) {
-      this.gameEngine.accessibilityManager.announce(`Level up! Now level ${this.level}. Bonus time added!`);
+      this.gameEngine.accessibilityManager.announce(announcement);
     }
     
     // Add more crystals for higher levels
     const container = this.ui.querySelector('#cave-crystals');
-    for (let i = 0; i < this.level; i++) {
+    for (let i = 0; i < Math.min(this.level, 3); i++) {
       this.createCrystal(container);
     }
     
     this.updateUI();
+  }
+
+  /**
+   * Celebrate milestone levels (every 5 levels)
+   */
+  celebrateMilestone() {
+    // Change background colors for celebration
+    const colors = [
+      'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)', // Red
+      'linear-gradient(135deg, #4834d4 0%, #686de0 100%)', // Purple  
+      'linear-gradient(135deg, #00d2d3 0%, #54a0ff 100%)', // Cyan
+      'linear-gradient(135deg, #ff9ff3 0%, #f368e0 100%)', // Pink
+      'linear-gradient(135deg, #feca57 0%, #ff9f43 100%)'  // Orange
+    ];
+    
+    const colorIndex = Math.floor((this.level - 1) / 5) % colors.length;
+    this.ui.style.background = colors[colorIndex];
+    
+    // Create celebration animation
+    this.createCelebrationAnimation();
+    
+    // Show milestone badge
+    this.showMilestoneBadge();
+    
+    // Extra time bonus for milestones
+    this.timeRemaining += 60;
+  }
+
+  /**
+   * Create celebration particle animation
+   */
+  createCelebrationAnimation() {
+    const particleCount = 20;
+    for (let i = 0; i < particleCount; i++) {
+      const particle = document.createElement('div');
+      particle.style.cssText = `
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: ${['#ffff00', '#ff00ff', '#00ffff', '#ff0000', '#00ff00'][i % 5]};
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 1000;
+        left: ${Math.random() * window.innerWidth}px;
+        top: ${Math.random() * window.innerHeight}px;
+        animation: celebrate-particle 3s ease-out forwards;
+      `;
+      
+      this.ui.appendChild(particle);
+      
+      // Remove particle after animation
+      setTimeout(() => {
+        if (particle.parentNode) {
+          particle.parentNode.removeChild(particle);
+        }
+      }, 3000);
+    }
+    
+    // Add particle animation styles
+    if (!document.getElementById('celebration-styles')) {
+      const style = document.createElement('style');
+      style.id = 'celebration-styles';
+      style.textContent = `
+        @keyframes celebrate-particle {
+          0% { 
+            transform: scale(0) rotate(0deg); 
+            opacity: 1; 
+          }
+          50% { 
+            transform: scale(1.5) rotate(180deg); 
+            opacity: 0.8; 
+          }
+          100% { 
+            transform: scale(0) rotate(360deg); 
+            opacity: 0; 
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  /**
+   * Show milestone achievement badge
+   */
+  showMilestoneBadge() {
+    const badge = document.createElement('div');
+    badge.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(45deg, #ffd700, #ffed4e);
+      color: #333;
+      padding: 30px;
+      border-radius: 20px;
+      text-align: center;
+      font-size: 2rem;
+      font-weight: bold;
+      box-shadow: 0 0 50px rgba(255, 215, 0, 0.8);
+      z-index: 1001;
+      animation: badge-appear 3s ease-out forwards;
+    `;
+    
+    badge.innerHTML = `
+      <div>🏆</div>
+      <div>LEVEL ${this.level}</div>
+      <div style="font-size: 1rem; margin-top: 10px;">Milestone Achieved!</div>
+      <div style="font-size: 0.8rem; margin-top: 5px;">+60 Bonus Seconds!</div>
+    `;
+    
+    document.body.appendChild(badge);
+    
+    // Add badge animation styles
+    if (!document.getElementById('badge-styles')) {
+      const style = document.createElement('style');
+      style.id = 'badge-styles';
+      style.textContent = `
+        @keyframes badge-appear {
+          0% { 
+            transform: translate(-50%, -50%) scale(0) rotate(-180deg); 
+            opacity: 0; 
+          }
+          50% { 
+            transform: translate(-50%, -50%) scale(1.2) rotate(0deg); 
+            opacity: 1; 
+          }
+          80% { 
+            transform: translate(-50%, -50%) scale(1) rotate(0deg); 
+            opacity: 1; 
+          }
+          100% { 
+            transform: translate(-50%, -50%) scale(0) rotate(180deg); 
+            opacity: 0; 
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Remove badge after animation
+    setTimeout(() => {
+      if (badge.parentNode) {
+        document.body.removeChild(badge);
+      }
+    }, 3000);
   }
 
   /**
@@ -453,6 +554,16 @@ export default class CrystalCaves {
     if (scoreEl) scoreEl.textContent = this.score;
     if (levelEl) levelEl.textContent = this.level;
     if (timeEl) timeEl.textContent = Math.max(0, Math.floor(this.timeRemaining));
+    
+    // Update global game state for progress bar
+    if (this.gameEngine && this.gameEngine.stateManager) {
+      this.gameEngine.stateManager.updateState({
+        score: this.score,
+        level: this.level,
+        experience: this.score, // Use score as experience points
+        currentScene: this.name
+      });
+    }
   }
 
   /**
@@ -480,18 +591,18 @@ export default class CrystalCaves {
     this.score = 0;
     this.level = 1;
     this.timeRemaining = 60;
-    this.updateUI();
     
-    // Check if eye tracking is available and prompt for calibration
-    if (this.gameEngine.inputManager && this.gameEngine.inputManager.inputMethods.has('eyeTracking')) {
-      const eyeTracker = this.gameEngine.inputManager.inputMethods.get('eyeTracking').instance;
-      if (eyeTracker && !eyeTracker.isCalibrated) {
-        // Show calibration prompt immediately
-        setTimeout(() => {
-          this.showCalibrationPrompt();
-        }, 1000); // Give UI time to load
+    // Clear existing crystals and create new ones
+    this.crystals = [];
+    const crystalContainer = this.ui?.querySelector('#cave-crystals');
+    if (crystalContainer) {
+      crystalContainer.innerHTML = ''; // Clear existing crystals
+      for (let i = 0; i < 5; i++) {
+        this.createCrystal(crystalContainer);
       }
     }
+    
+    this.updateUI();
     
     // Start game timer
     this.startGameTimer();

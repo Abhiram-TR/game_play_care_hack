@@ -100,3 +100,4 @@ coverage/
 
 # Planning files
 plan.txt
+.vercel

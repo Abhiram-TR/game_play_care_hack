@@ -68,22 +68,9 @@ export default class SwitchSanctuary {
       overflow: hidden;
     `;
     
-    // Game canvas for peaceful animations
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
-    this.canvas.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-      z-index: 1;
-    `;
-    this.ui.appendChild(this.canvas);
-    this.ctx = this.canvas.getContext('2d');
-    
-    // Game UI
-    this.ui.innerHTML += `
+    // Game UI content
+    const uiContent = document.createElement('div');
+    uiContent.innerHTML = `
       <div class="sanctuary-ui" style="position: absolute; top: 20px; left: 20px; color: #2E7D32; font-size: 1.2rem; z-index: 10; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
         <div><strong>🔘 Switch Sanctuary</strong></div>
         <div>Activities: <span id="sanctuary-activities">0</span></div>
@@ -126,6 +113,23 @@ export default class SwitchSanctuary {
         </button>
       </div>
     `;
+    
+    // Add UI content to the main UI container
+    this.ui.appendChild(uiContent);
+    
+    // Game canvas for peaceful animations
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+    this.canvas.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 1;
+    `;
+    this.ui.appendChild(this.canvas);
+    this.ctx = this.canvas.getContext('2d');
     
     container.appendChild(this.ui);
     
@@ -356,6 +360,14 @@ export default class SwitchSanctuary {
   setupScanInterface() {
     const scanContainer = this.ui.querySelector('#sanctuary-scan-items');
     
+    if (!scanContainer) {
+      console.error('Switch Sanctuary: scan container not found');
+      return;
+    }
+    
+    // Initialize scan items array
+    this.scanItems = [];
+    
     // Create scan items
     const scanItems = [
       { label: 'Start Activity', icon: '🧘', action: 'startActivity' },
@@ -422,13 +434,25 @@ export default class SwitchSanctuary {
    * Handle switch press
    */
   handleSwitchPress() {
+    console.log('Switch pressed!', { isScanning: this.isScanning, scanItemsLength: this.scanItems.length });
+    
     if (!this.isScanning) {
       this.startScanning();
       return;
     }
     
     // Select current item
+    if (this.scanItems.length === 0) {
+      console.error('No scan items available');
+      return;
+    }
+    
     const currentItem = this.scanItems[this.currentScanIndex];
+    if (!currentItem) {
+      console.error('Current scan item not found', this.currentScanIndex);
+      return;
+    }
+    
     this.selectScanItem(currentItem);
     
     // Accessibility announcement
@@ -572,7 +596,15 @@ export default class SwitchSanctuary {
    * Start random zen activity
    */
   startRandomActivity() {
+    console.log('Starting random activity', { zenActivitiesLength: this.zenActivities.length });
+    
+    if (this.zenActivities.length === 0) {
+      console.error('No zen activities available');
+      return;
+    }
+    
     const activity = this.zenActivities[Math.floor(Math.random() * this.zenActivities.length)];
+    console.log('Selected activity:', activity);
     this.showActivity(activity);
   }
 

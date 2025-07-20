@@ -50,11 +50,7 @@ export class SceneManager {
   async registerBuiltInScenes() {
     const sceneConfigs = [
       { name: 'menu', module: () => import('../scenes/MenuScene.js') },
-      { name: 'tutorial', module: () => import('../scenes/TutorialScene.js') },
-      { name: 'crystal_caves', module: () => import('../scenes/CrystalCaves.js') },
-      { name: 'wind_valley', module: () => import('../scenes/WindValley.js') },
-      { name: 'motion_mountains', module: () => import('../scenes/MotionMountains.js') },
-      { name: 'switch_sanctuary', module: () => import('../scenes/SwitchSanctuary.js') }
+      { name: 'simple_game', module: () => import('../scenes/SimpleGame.js') }
     ];
 
     for (const config of sceneConfigs) {

@@ -3,7 +3,7 @@
  * Handles multiple input methods and adaptive switching
  */
 
-import { EyeTracker } from '../components/input/EyeTracker.js';
+// import { EyeTracker } from '../components/input/EyeTracker.js'; // Disabled to prevent camera requests
 import { VoiceRecognition } from '../components/input/VoiceRecognition.js';
 import { BreathController } from '../components/input/BreathController.js';
 import { DeviceOrientation } from '../components/input/DeviceOrientation.js';
@@ -76,7 +76,7 @@ export class InputManager {
     const inputClasses = [
       { name: 'keyboard', class: KeyboardInput, priority: 1 },
       { name: 'switch', class: SwitchInput, priority: 2 },
-      { name: 'eyeTracking', class: EyeTracker, priority: 3 },
+      // { name: 'eyeTracking', class: EyeTracker, priority: 3 }, // Disabled by default to prevent camera requests
       { name: 'voice', class: VoiceRecognition, priority: 4 },
       { name: 'breath', class: BreathController, priority: 5 },
       { name: 'orientation', class: DeviceOrientation, priority: 6 }

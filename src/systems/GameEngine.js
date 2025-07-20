@@ -8,6 +8,7 @@ import { SceneManager } from './SceneManager.js';
 import { AudioManager } from './AudioManager.js';
 import { StateManager } from './StateManager.js';
 import { AccessibilityManager } from './AccessibilityManager.js';
+import { UIManager } from './UIManager.js';
 import { PerformanceMonitor } from '../utils/PerformanceMonitor.js';
 
 export class GameEngine {
@@ -17,6 +18,7 @@ export class GameEngine {
     this.audioManager = new AudioManager();
     this.stateManager = new StateManager();
     this.accessibilityManager = new AccessibilityManager();
+    this.uiManager = new UIManager();
     this.performanceMonitor = new PerformanceMonitor();
     
     this.isRunning = false;
@@ -113,6 +115,7 @@ export class GameEngine {
       { name: 'StateManager', system: this.stateManager },
       { name: 'AudioManager', system: this.audioManager },
       { name: 'InputManager', system: this.inputManager },
+      { name: 'UIManager', system: this.uiManager },
       { name: 'SceneManager', system: this.sceneManager }
     ];
 
@@ -149,6 +152,17 @@ export class GameEngine {
     // Canvas focus/blur for accessibility
     this.canvas.addEventListener('focus', () => {
       this.accessibilityManager.announce('Game area focused. Use your preferred input method to play.');
+    });
+    
+    // Scene manager events
+    this.sceneManager.on('transitionComplete', (data) => {
+      if (this.uiManager && this.uiManager.isInitialized) {
+        try {
+          this.uiManager.updateForScene(data.scene);
+        } catch (error) {
+          console.warn('Error updating UI for scene:', error);
+        }
+      }
     });
   }
 
@@ -191,6 +205,16 @@ export class GameEngine {
   stop() {
     this.isRunning = false;
     this.isPaused = false;
+    
+    // Cleanup UI Manager
+    if (this.uiManager) {
+      try {
+        this.uiManager.destroy();
+      } catch (error) {
+        console.warn('Error destroying UI Manager:', error);
+      }
+    }
+    
     console.log('⏹️ Game stopped');
   }
 
@@ -233,6 +257,9 @@ export class GameEngine {
       
       // Update accessibility features
       this.accessibilityManager.update(deltaTime);
+      
+      // Update UI (doesn't need deltaTime, updates on intervals)
+      // this.uiManager.update(deltaTime); // Commented out as UIManager uses intervals
       
     } catch (error) {
       console.error('Error during update:', error);
